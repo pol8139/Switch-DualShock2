@@ -1,0 +1,3 @@
+[submodule "mega32u4_dualshock2"]
+	path = mega32u4_dualshock2
+	url = git@github.com:pol8139/mega32u4_dualshock2.git
