@@ -25,6 +25,7 @@ these buttons for our use.
  */
 
 #include "Joystick.h"
+#include "mega32u4_dualshock2/mega32u4_dualshock2.h"
 
 /*
 The following ButtonMap variable defines all possible buttons within the
@@ -33,22 +34,22 @@ original 13 bits of space, along with attempting to investigate the remaining
 button was operational on the stick.
 */
 uint16_t ButtonMap[16] = {
-	0x01,
-	0x02,
-	0x04,
-	0x08,
-	0x10,
-	0x20,
-	0x40,
-	0x80,
-	0x100,
-	0x200,
-	0x400,
-	0x800,
-	0x1000,
-	0x2000,
-	0x4000,
-	0x8000,
+	0x0100,
+	0x0400,
+	0x0800,
+	0x0200,
+	0x0000,
+	0x0000,
+	0x0000,
+	0x0000,
+	0x0040,
+	0x0080,
+	0x0010,
+	0x0020,
+	0x0008,
+	0x0004,
+	0x0002,
+	0x0001
 };
 
 /*** Debounce ****
@@ -104,9 +105,9 @@ int main(void) {
 		HID_Task();
 		// We also need to run the main USB management task.
 		USB_USBTask();
-		// As part of this loop, we'll also run our bad debounce code.
-		// Optimally, we should replace this with something that fires on a timer.
-		debounce_ports();
+		// // As part of this loop, we'll also run our bad debounce code.
+		// // Optimally, we should replace this with something that fires on a timer.
+		// debounce_ports();
 	}
 }
 
@@ -120,13 +121,14 @@ void SetupHardware(void) {
 	clock_prescale_set(clock_div_1);
 	// We can then initialize our hardware and peripherals, including the USB stack.
 
-	// Both PORTD and PORTB will be used for handling the buttons and stick.
-	DDRD  &= ~0xFF;
-	PORTD |=  0xFF;
+	// // Both PORTD and PORTB will be used for handling the buttons and stick.
+	// DDRD  &= ~0xFF;
+	// PORTD |=  0xFF;
 
-	DDRB  &= ~0xFF;
-	PORTB |=  0xFF;
+	// DDRB  &= ~0xFF;
+	// PORTB |=  0xFF;
 	// The USB stack should be initialized last.
+	initSPIMaster();
 	USB_Init();
 }
 
@@ -239,12 +241,16 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	// All of this code here is handled -really poorly-, and should be replaced with something a bit more production-worthy.
 	uint16_t buf_button   = 0x00;
 	uint8_t  buf_joystick = 0x00;
+	uint8_t buf_DS2[MAX_NUM_RECIEVE] = {};
+	// int8_t num_of_bytes = 0;
 
 	/* Clear the report contents */
 	memset(ReportData, 0, sizeof(USB_JoystickReport_Input_t));
 
-	buf_button   = (~PIND_DEBOUNCED & 0xFF) << (~PINB_DEBOUNCED & 0x08 ? 8 : 0);
-	buf_joystick = (~PINB_DEBOUNCED & 0xFF);
+	// buf_button   = (~PIND_DEBOUNCED & 0xFF) << (~PINB_DEBOUNCED & 0x08 ? 8 : 0);
+	// buf_joystick = (~PINB_DEBOUNCED & 0xFF);
+	/*num_of_bytes = */readDataDS2(buf_DS2);
+	buf_button = (~buf_DS2[3]) & ((~buf_DS2[4]) << 8);
 
 	for (int i = 0; i < 16; i++) {
 		if (buf_button & (1 << i))
@@ -265,11 +271,11 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	else
 		ReportData->LY = 128;
 
-	switch(buf_joystick & 0xF0) {
-		case 0x80: // Top
+	switch((~buf_DS2[3]) & 0xF0) {
+		case 0x10: // Top
 			ReportData->HAT = 0x00;
 			break;
-		case 0xA0: // Top-Right
+		case 0x30: // Top-Right
 			ReportData->HAT = 0x01;
 			break;
 		case 0x20: // Right
@@ -281,10 +287,10 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 		case 0x40: // Bottom
 			ReportData->HAT = 0x04;
 			break;
-		case 0x50: // Bottom-Left
+		case 0xc0: // Bottom-Left
 			ReportData->HAT = 0x05;
 			break;
-		case 0x10: // Left
+		case 0x80: // Left
 			ReportData->HAT = 0x06;
 			break;
 		case 0x90: // Top-Left
