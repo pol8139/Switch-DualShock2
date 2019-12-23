@@ -239,7 +239,7 @@ void HID_Task(void) {
 // Prepare the next report for the host.
 void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	// All of this code here is handled -really poorly-, and should be replaced with something a bit more production-worthy.
-	uint16_t buf_button   = 0x00;
+	uint16_t buf_button   = 0x0000;
 	uint8_t  buf_joystick = 0x00;
 	uint8_t buf_DS2[MAX_NUM_RECIEVE] = {};
 	// int8_t num_of_bytes = 0;
@@ -250,7 +250,7 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	// buf_button   = (~PIND_DEBOUNCED & 0xFF) << (~PINB_DEBOUNCED & 0x08 ? 8 : 0);
 	// buf_joystick = (~PINB_DEBOUNCED & 0xFF);
 	/*num_of_bytes = */readDataDS2(buf_DS2);
-	buf_button = (~buf_DS2[3]) & ((~buf_DS2[4]) << 8);
+	buf_button = (0x00FF ^ buf_DS2[3]) | (0xFF00 ^ (buf_DS2[4] << 8));
 
 	for (int i = 0; i < 16; i++) {
 		if (buf_button & (1 << i))
@@ -271,7 +271,7 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	else
 		ReportData->LY = 128;
 
-	switch((~buf_DS2[3]) & 0xF0) {
+	switch(buf_button & 0xF0) {
 		case 0x10: // Top
 			ReportData->HAT = 0x00;
 			break;
@@ -287,7 +287,7 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 		case 0x40: // Bottom
 			ReportData->HAT = 0x04;
 			break;
-		case 0xc0: // Bottom-Left
+		case 0xC0: // Bottom-Left
 			ReportData->HAT = 0x05;
 			break;
 		case 0x80: // Left
