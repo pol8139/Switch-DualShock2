@@ -52,43 +52,12 @@ uint16_t ButtonMap[16] = {
 	0x0001
 };
 
-/*** Debounce ****
-The following is some -really bad- debounce code. I have a more robust library
-that I've used in other personal projects that would be a much better use
-here, especially considering that this is a stick indented for use with arcade
-fighters.
-
-This code exists solely to actually test on. This will eventually be replaced.
-**** Debounce ***/
-// Quick debounce hackery!
-// We're going to capture each port separately and store the contents into a 32-bit value.
-uint32_t pb_debounce = 0;
-uint32_t pd_debounce = 0;
-
-// We also need a port state capture. We'll use a 16-bit value for this.
-uint16_t bd_state = 0;
-
-// We'll also give us some useful macros here.
-#define PINB_DEBOUNCED ((bd_state >> 0) & 0xFF)
-#define PIND_DEBOUNCED ((bd_state >> 8) & 0xFF) 
-
-// So let's do some debounce! Lazily, and really poorly.
-void debounce_ports(void) {
-	// We'll shift the current value of the debounce down one set of 8 bits. We'll also read in the state of the pins.
-	pb_debounce = (pb_debounce << 8) + PINB;
-	pd_debounce = (pd_debounce << 8) + PIND;
-
-	// We'll then iterate through a simple for loop.
-	for (int i = 0; i < 8; i++) {
-		if ((pb_debounce & (0x1010101 << i)) == (0x1010101 << i)) // wat
-			bd_state |= (1 << i);
-		else if ((pb_debounce & (0x1010101 << i)) == (0))
-			bd_state &= ~(uint16_t)(1 << i);
-
-		if ((pd_debounce & (0x1010101 << i)) == (0x1010101 << i))
-			bd_state |= (1 << (8 + i));
-		else if ((pd_debounce & (0x1010101 << i)) == (0))
-			bd_state &= ~(uint16_t)(1 << (8 + i));
+uint8_t easyDeadZone(uint8_t raw_input)
+{
+	if(0x60 <= raw_input && raw_input <= 0xA0) {
+		return 0x80;
+	} else {
+		return raw_input;
 	}
 }
 
@@ -240,16 +209,12 @@ void HID_Task(void) {
 void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	// All of this code here is handled -really poorly-, and should be replaced with something a bit more production-worthy.
 	uint16_t buf_button   = 0x0000;
-	uint8_t  buf_joystick = 0x00;
 	uint8_t buf_DS2[MAX_NUM_RECIEVE] = {};
-	// int8_t num_of_bytes = 0;
 
 	/* Clear the report contents */
 	memset(ReportData, 0, sizeof(USB_JoystickReport_Input_t));
 
-	// buf_button   = (~PIND_DEBOUNCED & 0xFF) << (~PINB_DEBOUNCED & 0x08 ? 8 : 0);
-	// buf_joystick = (~PINB_DEBOUNCED & 0xFF);
-	/*num_of_bytes = */readDataDS2(buf_DS2);
+	readDataDS2(buf_DS2);
 	buf_button = (0x00FF ^ buf_DS2[3]) | (0xFF00 ^ (buf_DS2[4] << 8));
 
 	for (int i = 0; i < 16; i++) {
@@ -257,19 +222,17 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 			ReportData->Button |= ButtonMap[i];
 	}
 
-	if (buf_joystick & 0x10)
-		ReportData->LX = 0;
-	else if (buf_joystick & 0x20)
-		ReportData->LX = 255;
-	else
-		ReportData->LX = 128;
-
-	if (buf_joystick & 0x80)
-		ReportData->LY = 0;
-	else if (buf_joystick & 0x40)
-		ReportData->LY = 255;
-	else
-		ReportData->LY = 128;
+	if(!(buf_DS2[NUM_ID] == 0x73 || buf_DS2[NUM_ID] == 0x79)) {
+		ReportData->LX = 0x80;
+		ReportData->LY = 0x80;
+		ReportData->RX = 0x80;
+		ReportData->RY = 0x80;
+	} else {
+		ReportData->LX = easyDeadZone(buf_DS2[7]);
+		ReportData->LY = easyDeadZone(buf_DS2[8]);
+		ReportData->RX = easyDeadZone(buf_DS2[5]);
+		ReportData->RY = easyDeadZone(buf_DS2[6]);
+	}
 
 	switch(buf_button & 0xF0) {
 		case 0x10: // Top
