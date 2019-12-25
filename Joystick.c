@@ -74,9 +74,6 @@ int main(void) {
 		HID_Task();
 		// We also need to run the main USB management task.
 		USB_USBTask();
-		// // As part of this loop, we'll also run our bad debounce code.
-		// // Optimally, we should replace this with something that fires on a timer.
-		// debounce_ports();
 	}
 }
 
@@ -90,13 +87,6 @@ void SetupHardware(void) {
 	clock_prescale_set(clock_div_1);
 	// We can then initialize our hardware and peripherals, including the USB stack.
 
-	// // Both PORTD and PORTB will be used for handling the buttons and stick.
-	// DDRD  &= ~0xFF;
-	// PORTD |=  0xFF;
-
-	// DDRB  &= ~0xFF;
-	// PORTB |=  0xFF;
-	// The USB stack should be initialized last.
 	initSPIMaster();
 	USB_Init();
 }
