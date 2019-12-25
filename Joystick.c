@@ -52,10 +52,10 @@ uint16_t ButtonMap[16] = {
 	0x0001
 };
 
-uint8_t easyDeadZone(uint8_t raw_input)
+uint16_t easyDeadZone(uint16_t raw_input)
 {
-	if(0x60 <= raw_input && raw_input <= 0xA0) {
-		return 0x80;
+	if((0x6000 <= raw_input) && (raw_input <= 0xA000) && (0x60 <= (raw_input & 0xFF)) && ((raw_input & 0xFF) <= 0xA0)) {
+		return 0x8080;
 	} else {
 		return raw_input;
 	}
@@ -209,6 +209,7 @@ void HID_Task(void) {
 void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	// All of this code here is handled -really poorly-, and should be replaced with something a bit more production-worthy.
 	uint16_t buf_button   = 0x0000;
+	uint16_t buf_joystick = 0x0000;
 	uint8_t buf_DS2[MAX_NUM_RECIEVE] = {};
 
 	/* Clear the report contents */
@@ -228,10 +229,12 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 		ReportData->RX = 0x80;
 		ReportData->RY = 0x80;
 	} else {
-		ReportData->LX = easyDeadZone(buf_DS2[7]);
-		ReportData->LY = easyDeadZone(buf_DS2[8]);
-		ReportData->RX = easyDeadZone(buf_DS2[5]);
-		ReportData->RY = easyDeadZone(buf_DS2[6]);
+		buf_joystick = easyDeadZone(buf_DS2[7] << 8 | buf_DS2[8]);
+		ReportData->LX = buf_joystick >> 8;
+		ReportData->LY = buf_joystick & 0xFF;
+		buf_joystick = easyDeadZone(buf_DS2[5] << 8 | buf_DS2[6]);
+		ReportData->RX = buf_joystick >> 8;
+		ReportData->RY = buf_joystick & 0xFF;
 	}
 
 	switch(buf_button & 0xF0) {
