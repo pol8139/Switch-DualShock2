@@ -34,7 +34,7 @@ original 13 bits of space, along with attempting to investigate the remaining
 button was operational on the stick.
 */
 uint16_t ButtonMap[16] = {
-	0x0100,
+	0x0000,
 	0x0400,
 	0x0800,
 	0x0200,
@@ -45,6 +45,29 @@ uint16_t ButtonMap[16] = {
 	0x0040,
 	0x0080,
 	0x0010,
+	0x0020,
+	0x0008,
+	0x0004,
+	0x0002,
+	0x0001
+};
+
+/*
+DS2's select button is not Switch-Joystick's select button -- 
+sel+L1=sel, sel+L2=capture, sel+R2=home 
+*/
+uint16_t ButtonMap_Select[16] = {
+	0x0000,
+	0x0400,
+	0x0800,
+	0x0200,
+	0x0000,
+	0x0000,
+	0x0000,
+	0x0000,
+	0x2000,
+	0x1000,
+	0x0100,
 	0x0020,
 	0x0008,
 	0x0004,
@@ -206,11 +229,16 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	memset(ReportData, 0, sizeof(USB_JoystickReport_Input_t));
 
 	readDataDS2(buf_DS2);
-	buf_button = (0x00FF ^ buf_DS2[3]) | (0xFF00 ^ (buf_DS2[4] << 8));
+	buf_button = ~(buf_DS2[3] | (buf_DS2[4] << 8));
 
 	for (int i = 0; i < 16; i++) {
-		if (buf_button & (1 << i))
-			ReportData->Button |= ButtonMap[i];
+		if(buf_button & (1 << i)) {
+			if(buf_button & 0x01) { // if DS2's select button is pressed...
+				ReportData->Button |= ButtonMap_Select[i];
+			} else {
+				ReportData->Button |= ButtonMap[i];
+			}
+		}
 	}
 
 	if(!(buf_DS2[NUM_ID] == 0x73 || buf_DS2[NUM_ID] == 0x79)) {
