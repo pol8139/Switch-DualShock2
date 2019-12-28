@@ -111,6 +111,21 @@ void SetupHardware(void) {
 	// We can then initialize our hardware and peripherals, including the USB stack.
 
 	initSPIMaster();
+	unsigned char buffer_byte[MAX_NUM_RECIEVE];
+	readDataDS2(buffer_byte);
+	delayFrame(1);
+	configModeEnterDS2(buffer_byte);
+	delayFrame(1);
+	queryModelAndModeDS2(buffer_byte);
+	delayFrame(1);
+	if(buffer_byte[NUM_ID] == 0xF3) {
+		setModeAndLockDS2(buffer_byte, MODE_ANALOG, LOCK_DISABLE);
+		delayFrame(1);
+		vibrationEnableDS2(buffer_byte);
+		delayFrame(1);
+		configModeExitDS2(buffer_byte);
+		delayFrame(1);
+	}
 	USB_Init();
 }
 
@@ -233,7 +248,7 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 
 	for (int i = 0; i < 16; i++) {
 		if(buf_button & (1 << i)) {
-			if(buf_button & 0x01) { // if DS2's select button is pressed...
+			if(buf_button & 0x01) { // when you push DS2's select button...
 				ReportData->Button |= ButtonMap_Select[i];
 			} else {
 				ReportData->Button |= ButtonMap[i];
